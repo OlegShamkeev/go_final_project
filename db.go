@@ -1,17 +1,17 @@
 package main
 
 import (
-	"database/sql"
 	"os"
 
+	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type taskStore struct {
-	db *sql.DB
+type storage struct {
+	db *sqlx.DB
 }
 
-func NewTaskStore(path string) (*taskStore, error) {
+func openDB(path string) (*storage, error) {
 	var install bool
 
 	_, err := os.Stat(path)
@@ -27,13 +27,13 @@ func NewTaskStore(path string) (*taskStore, error) {
 		}
 	}
 
-	db, err := sql.Open("sqlite3", path)
+	db, err := sqlx.Connect("sqlite3", path)
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
 
-	store := &taskStore{db: db}
+	store := &storage{db: db}
 
 	if install {
 		if err = store.createTableTasks(); err != nil {
@@ -44,7 +44,7 @@ func NewTaskStore(path string) (*taskStore, error) {
 	return store, nil
 }
 
-func (t taskStore) createTableTasks() error {
+func (t storage) createTableTasks() error {
 	_, err := t.db.Exec(`CREATE TABLE scheduler (id INTEGER PRIMARY KEY AUTOINCREMENT, date CHAR(8) NOT NULL DEFAULT "", 
 	title VARCHAR(256) NOT NULL DEFAULT "", comment TEXT NOT NULL DEFAULT "", repeat VARCHAR(128) NOT NULL DEFAULT "")`)
 	if err != nil {

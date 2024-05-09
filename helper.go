@@ -37,6 +37,10 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 		if daysToAdd > 400 {
 			return "", fmt.Errorf("days to add more than 400")
 		}
+		//check if date has come is in today or in future
+		if date == time.Now().Format("20060102") || d.After(time.Now()) {
+			return date, nil
+		}
 		for {
 			d = d.AddDate(0, 0, daysToAdd)
 			if d.After(now) {
@@ -59,6 +63,12 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 				day = 0
 			}
 			daysMap[day]++
+		}
+
+		//check if date has come is in today or in future and suitable for repeat rules
+		_, ok := daysMap[int(d.Weekday())]
+		if (date == time.Now().Format("20060102") || d.After(time.Now())) && ok {
+			return date, nil
 		}
 		for {
 			d = d.AddDate(0, 0, 1)
@@ -105,8 +115,8 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 
 			t := time.Date(d.Year(), d.Month(), 32, 0, 0, 0, 0, time.UTC)
 			daysInMonth := 32 - t.Day()
-
 			backwardKey := d.Day() - daysInMonth - 1
+
 			_, ok2 := daysMap[backwardKey]
 
 			if _, ok3 := monthsMap[int(d.Month())]; (ok1 || ok2) && d.After(now) && ok3 {

@@ -7,7 +7,6 @@ import (
 
 	"github.com/caarlos0/env"
 	"github.com/go-chi/chi/v5"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 var cfg config
@@ -20,7 +19,7 @@ func main() {
 		return
 	}
 
-	db, err := openDB()
+	db, err := initDB()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -35,6 +34,7 @@ func main() {
 	r.Get("/api/nextdate", getNextDate)
 	r.Post("/api/task", postTask)
 
+	log.Printf("Starting web-server on port: %d\n", cfg.Port)
 	if err := http.ListenAndServe(fmt.Sprintf("localhost:%d", cfg.Port), r); err != nil {
 		log.Fatalf("Error starting web-server: %s", err.Error())
 	}

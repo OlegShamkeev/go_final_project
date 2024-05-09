@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -13,7 +13,7 @@ type storage struct {
 	db *sqlx.DB
 }
 
-func openDB() (*sqlx.DB, error) {
+func initDB() (*sqlx.DB, error) {
 	var dbFilePath string
 	if len(cfg.DBPath) > 0 {
 		dbFilePath = cfg.DBPath
@@ -23,7 +23,7 @@ func openDB() (*sqlx.DB, error) {
 			return nil, err
 		}
 		dbFilePath = filepath.Join(appPath, "scheduler.db")
-		fmt.Printf("I take default DB path %s\n", dbFilePath)
+		log.Printf("DB path that will be used is %s\n", dbFilePath)
 	}
 
 	var install bool
@@ -32,7 +32,7 @@ func openDB() (*sqlx.DB, error) {
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Printf("trying create new DB here %s\n", dbFilePath)
+			log.Printf("Attempt to create new DB file by path: %s\n", dbFilePath)
 
 			install = true
 			f, err := os.Create(dbFilePath)
@@ -44,18 +44,19 @@ func openDB() (*sqlx.DB, error) {
 			if err != nil {
 				return nil, err
 			}
+			log.Println("New DB file successfully created")
 		} else {
 			return nil, err
 		}
 	}
-
+	log.Printf("Connecting to DB by path: %s\n", dbFilePath)
 	db, err := sqlx.Connect("sqlite3", dbFilePath)
 	if err != nil {
 		return nil, err
 	}
 
 	if install {
-		if err = CreateTableTasks(db); err != nil {
+		if err = createTableAndIndex(db); err != nil {
 			return nil, err
 		}
 	}
@@ -63,7 +64,8 @@ func openDB() (*sqlx.DB, error) {
 	return db, nil
 }
 
-func CreateTableTasks(db *sqlx.DB) error {
+func createTableAndIndex(db *sqlx.DB) error {
+	log.Println("Creating new table scheduler with index")
 	schema := `CREATE TABLE scheduler (id INTEGER PRIMARY KEY AUTOINCREMENT, date CHAR(8) NOT NULL DEFAULT "", 
 	title VARCHAR(256) NOT NULL DEFAULT "", comment TEXT NOT NULL DEFAULT "", repeat VARCHAR(128) NOT NULL DEFAULT "")`
 
@@ -80,6 +82,7 @@ func CreateTableTasks(db *sqlx.DB) error {
 }
 
 func (t storage) createTask(task Task) (int, error) {
+	log.Printf("Insert new record in DB:\n %v\n", task)
 	insertRow := `INSERT INTO scheduler (date, title, comment, repeat) 
 	VALUES (?, ?, ?, ?)`
 	res, err := t.db.Exec(insertRow, task.Date, task.Title, task.Comment, task.Repeat)

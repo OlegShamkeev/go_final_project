@@ -98,3 +98,21 @@ func postTask(w http.ResponseWriter, r *http.Request) {
 	res, _ := json.Marshal(&Result{Id: id})
 	w.Write(res)
 }
+
+func getTasks(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+
+	search := r.URL.Query().Get("search")
+
+	tasks, err := store.getTasks(search)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		res, _ := json.Marshal(&Result{Error: err.Error()})
+		w.Write(res)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	res, _ := json.Marshal(&map[string][]Task{"tasks": tasks})
+	w.Write(res)
+}

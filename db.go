@@ -4,6 +4,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -82,7 +84,7 @@ func createTableAndIndex(db *sqlx.DB) error {
 }
 
 func (t storage) createTask(task Task) (int, error) {
-	log.Printf("Insert new record in DB:\n %v\n", task)
+	log.Printf("Insert new record in DB:\n date: %s, title: %s, comment: %s, repeat: %s\n", task.Date, task.Title, task.Comment, task.Repeat)
 	insertRow := `INSERT INTO scheduler (date, title, comment, repeat) 
 	VALUES (?, ?, ?, ?)`
 	res, err := t.db.Exec(insertRow, task.Date, task.Title, task.Comment, task.Repeat)
@@ -95,4 +97,31 @@ func (t storage) createTask(task Task) (int, error) {
 	}
 
 	return int(id), nil
+}
+
+func (t storage) getTasks(search string) ([]Task, error) {
+	var selectRows string
+	tasks := []Task{}
+	var errM error
+
+	if len(search) > 0 {
+		date, err := time.Parse("02.01.2006", search)
+		if err != nil {
+			selectRows = `SELECT * FROM scheduler WHERE UPPER(title) LIKE ? OR UPPER(comment) LIKE ? ORDER BY date LIMIT ?`
+			errM = t.db.Select(&tasks, selectRows,
+				"%"+strings.ToUpper(search)+"%",
+				"%"+strings.ToUpper(search)+"%",
+				cfg.Limit)
+		} else {
+			selectRows = `SELECT * FROM scheduler WHERE date = ? LIMIT ?`
+			errM = t.db.Select(&tasks, selectRows, date.Format("20060102"), cfg.Limit)
+		}
+	} else {
+		selectRows = `SELECT * FROM scheduler ORDER BY date LIMIT ?`
+		errM = t.db.Select(&tasks, selectRows, cfg.Limit)
+	}
+	if errM != nil {
+		return nil, errM
+	}
+	return tasks, nil
 }

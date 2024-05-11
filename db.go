@@ -83,7 +83,7 @@ func createTableAndIndex(db *sqlx.DB) error {
 	return nil
 }
 
-func (t storage) createTask(task Task) (int, error) {
+func (t storage) createTask(task *Task) (int, error) {
 	log.Printf("Insert new record in DB:\n date: %s, title: %s, comment: %s, repeat: %s\n", task.Date, task.Title, task.Comment, task.Repeat)
 	insertRow := `INSERT INTO scheduler (date, title, comment, repeat) 
 	VALUES (?, ?, ?, ?)`
@@ -124,4 +124,26 @@ func (t storage) getTasks(search string) ([]Task, error) {
 		return nil, errM
 	}
 	return tasks, nil
+}
+
+func (t storage) getTask(id int) (*Task, error) {
+	task := &Task{}
+
+	selectRow := `SELECT * FROM scheduler WHERE id = ?`
+	err := t.db.Get(task, selectRow, id)
+	if err != nil {
+		return nil, err
+	}
+	return task, nil
+}
+
+func (t storage) updateTask(task Task) error {
+	log.Printf("Update task with id: %s", task.Id)
+
+	updateRow := `UPDATE scheduler SET date = ?, title = ?, comment = ?, repeat = ? WHERE id = ?`
+	_, err := t.db.Exec(updateRow, task.Date, task.Title, task.Comment, task.Repeat, task.Id)
+	if err != nil {
+		return err
+	}
+	return nil
 }

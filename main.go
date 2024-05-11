@@ -34,6 +34,8 @@ func main() {
 	r.Get("/api/nextdate", getNextDate)
 	r.Post("/api/task", postTask)
 	r.Get("/api/tasks", getTasks)
+	r.Get("/api/task", getTask)
+	r.Put("/api/task", updateTask)
 
 	log.Printf("Starting web-server on port: %d\n", cfg.Port)
 	if err := http.ListenAndServe(fmt.Sprintf("localhost:%d", cfg.Port), r); err != nil {

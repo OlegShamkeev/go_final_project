@@ -128,3 +128,29 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 		return "", fmt.Errorf("incorrect format of the Repeat parameter")
 	}
 }
+
+func validateTask(task *Task) *Result {
+
+	if len(strings.TrimSpace(task.Title)) == 0 {
+		return &Result{Error: "field title couldn't be empty"}
+
+	}
+
+	if len(strings.TrimSpace(task.Date)) == 0 {
+		task.Date = time.Now().Format("20060102")
+	} else {
+		dateParsed, err := time.Parse("20060102", task.Date)
+		if err != nil {
+			return &Result{Error: err.Error()}
+		}
+		if len(strings.TrimSpace(task.Repeat)) > 0 {
+			task.Date, err = NextDate(time.Now(), task.Date, task.Repeat)
+			if err != nil {
+				return &Result{Error: err.Error()}
+			}
+		} else if dateParsed.Before(time.Now()) {
+			task.Date = time.Now().Format("20060102")
+		}
+	}
+	return nil
+}

@@ -137,7 +137,7 @@ func (t storage) getTask(id int) (*Task, error) {
 	return task, nil
 }
 
-func (t storage) updateTask(task Task) error {
+func (t storage) updateTask(task *Task) error {
 	log.Printf("Update task with id: %s", task.Id)
 
 	updateRow := `UPDATE scheduler SET date = ?, title = ?, comment = ?, repeat = ? WHERE id = ?`

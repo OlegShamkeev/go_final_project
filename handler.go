@@ -177,7 +177,7 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 		w.Write(res)
 		return
 	}
-	err = store.updateTask(*task)
+	err = store.updateTask(task)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		res, _ := json.Marshal(&Result{Error: err.Error()})

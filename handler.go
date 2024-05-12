@@ -3,9 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -22,7 +20,7 @@ func getNextDate(w http.ResponseWriter, r *http.Request) {
 	date := r.URL.Query().Get("date")
 	repeat := r.URL.Query().Get("repeat")
 
-	result, err := NextDate(dNow, date, repeat)
+	result, err := NextDate(dNow, date, repeat, false)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -58,7 +56,7 @@ func postTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if resultValidate := validateTask(task); resultValidate != nil {
+	if resultValidate := validateAndUpdateTask(task, false); resultValidate != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		res, _ := json.Marshal(resultValidate)
 		w.Write(res)
@@ -100,16 +98,11 @@ func getTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
 	id := r.URL.Query().Get("id")
-	if len(id) == 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(&Result{Error: "no id parameter"})
-		w.Write(res)
-		return
-	}
-	idInt, err := strconv.Atoi(id)
+	idInt, err := validateTaskID(id)
+
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(&Result{Error: fmt.Sprintf("field id should be number value: %s", err.Error())})
+		res, _ := json.Marshal(&Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
@@ -117,7 +110,7 @@ func getTask(w http.ResponseWriter, r *http.Request) {
 	task, err := store.getTask(idInt)
 
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		res, _ := json.Marshal(&Result{Error: err.Error()})
 		w.Write(res)
 		return
@@ -148,16 +141,10 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(task.Id) == 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(&Result{Error: "no id parameter"})
-		w.Write(res)
-		return
-	}
-	idInt, err := strconv.Atoi(task.Id)
+	idInt, err := validateTaskID(task.Id)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(&Result{Error: fmt.Sprintf("field id should be number value: %s", err.Error())})
+		res, _ := json.Marshal(&Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
@@ -171,7 +158,7 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if resultValidate := validateTask(task); resultValidate != nil {
+	if resultValidate := validateAndUpdateTask(task, false); resultValidate != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		res, _ := json.Marshal(resultValidate)
 		w.Write(res)
@@ -185,6 +172,79 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.WriteHeader(http.StatusOK)
+	res, _ := json.Marshal(&map[string]any{})
+	w.Write(res)
+}
+
+func checkDoneTask(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+
+	id := r.URL.Query().Get("id")
+	idInt, err := validateTaskID(id)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		res, _ := json.Marshal(&Result{Error: err.Error()})
+		w.Write(res)
+		return
+	}
+	task, err := store.getTask(idInt)
+
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		res, _ := json.Marshal(&Result{Error: err.Error()})
+		w.Write(res)
+		return
+	}
+
+	if len(task.Repeat) == 0 {
+		deleteTask(w, r)
+		return
+	}
+
+	if resultValidate := validateAndUpdateTask(task, true); resultValidate != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		res, _ := json.Marshal(resultValidate)
+		w.Write(res)
+		return
+	}
+
+	err = store.updateTask(task)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		res, _ := json.Marshal(&Result{Error: err.Error()})
+		w.Write(res)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	res, _ := json.Marshal(&map[string]any{})
+	w.Write(res)
+}
+
+func deleteTask(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+
+	id := r.URL.Query().Get("id")
+	idInt, err := validateTaskID(id)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		res, _ := json.Marshal(&Result{Error: err.Error()})
+		w.Write(res)
+		return
+	}
+
+	err = store.deleteTask(idInt)
+
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		res, _ := json.Marshal(&Result{Error: err.Error()})
+		w.Write(res)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	res, _ := json.Marshal(&map[string]any{})
 	w.Write(res)

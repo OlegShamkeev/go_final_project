@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func NextDate(now time.Time, date string, repeat string) (string, error) {
+func NextDate(now time.Time, date string, repeat string, update bool) (string, error) {
 	d, err := time.Parse("20060102", date)
 	if err != nil {
 		return "", err
@@ -38,7 +38,7 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 			return "", fmt.Errorf("days to add more than 400")
 		}
 		//check if date has come is in today or in future
-		if date == time.Now().Format("20060102") || d.After(time.Now()) {
+		if (date == time.Now().Format("20060102") || d.After(time.Now())) && !update {
 			return date, nil
 		}
 		for {
@@ -67,7 +67,7 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 
 		//check if date has come is in today or in future and suitable for repeat rules
 		_, ok := daysMap[int(d.Weekday())]
-		if (date == time.Now().Format("20060102") || d.After(time.Now())) && ok {
+		if (date == time.Now().Format("20060102") || d.After(time.Now())) && ok && !update {
 			return date, nil
 		}
 		for {
@@ -129,11 +129,10 @@ func NextDate(now time.Time, date string, repeat string) (string, error) {
 	}
 }
 
-func validateTask(task *Task) *Result {
+func validateAndUpdateTask(task *Task, update bool) *Result {
 
 	if len(strings.TrimSpace(task.Title)) == 0 {
 		return &Result{Error: "field title couldn't be empty"}
-
 	}
 
 	if len(strings.TrimSpace(task.Date)) == 0 {
@@ -144,7 +143,7 @@ func validateTask(task *Task) *Result {
 			return &Result{Error: err.Error()}
 		}
 		if len(strings.TrimSpace(task.Repeat)) > 0 {
-			task.Date, err = NextDate(time.Now(), task.Date, task.Repeat)
+			task.Date, err = NextDate(time.Now(), task.Date, task.Repeat, update)
 			if err != nil {
 				return &Result{Error: err.Error()}
 			}
@@ -153,4 +152,15 @@ func validateTask(task *Task) *Result {
 		}
 	}
 	return nil
+}
+
+func validateTaskID(id string) (int, error) {
+	if len(id) == 0 {
+		return 0, fmt.Errorf("no id parameter")
+	}
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		return 0, err
+	}
+	return idInt, nil
 }

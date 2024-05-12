@@ -147,3 +147,13 @@ func (t storage) updateTask(task *Task) error {
 	}
 	return nil
 }
+
+func (t storage) deleteTask(id int) error {
+	log.Printf("Delete task with id: %d", id)
+	deleteRow := `DELETE FROM scheduler where id = ?`
+	_, err := t.db.Exec(deleteRow, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}

@@ -2,10 +2,13 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 )
+
+const secretLength = 20
 
 func NextDate(now time.Time, date string, repeat string, update bool) (string, error) {
 	d, err := time.Parse("20060102", date)
@@ -163,4 +166,14 @@ func validateTaskID(id string) (int, error) {
 		return 0, err
 	}
 	return idInt, nil
+}
+
+func generateSecret() []byte {
+	rnd := rand.NewSource(time.Now().Unix())
+	result := make([]byte, 0, secretLength)
+	for i := 0; i < secretLength; i++ {
+		randomNumber := rnd.Int63()
+		result = append(result, byte(randomNumber%26+97))
+	}
+	return result
 }

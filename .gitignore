@@ -29,6 +29,9 @@ go.work
 # Tests debug
 tests/__*
 
+# Debug 
+__*
+
 ### VisualStudioCode Patch ###
 # Ignore all local history of files
 .history

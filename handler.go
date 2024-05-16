@@ -2,9 +2,13 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"time"
+
+	"github.com/golang-jwt/jwt"
 )
 
 func getNextDate(w http.ResponseWriter, r *http.Request) {
@@ -248,4 +252,106 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	res, _ := json.Marshal(&map[string]any{})
 	w.Write(res)
+}
+
+func authAndGenerateToken(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+
+	var buf bytes.Buffer
+
+	_, err := buf.ReadFrom(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		res, _ := json.Marshal(&Result{Error: err.Error()})
+		w.Write(res)
+		return
+	}
+	p := map[string]string{}
+	if err := json.Unmarshal(buf.Bytes(), &p); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		res, _ := json.Marshal(&Result{Error: err.Error()})
+		w.Write(res)
+		return
+	}
+
+	if p["password"] != cfg.Password {
+		w.WriteHeader(http.StatusUnauthorized)
+		res, _ := json.Marshal(&Result{Error: "wrong password"})
+		w.Write(res)
+		return
+	}
+
+	result := sha256.Sum256([]byte(cfg.Password))
+	claims := jwt.MapClaims{
+		"hashPass": hex.EncodeToString(result[:]),
+	}
+	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	signedToken, err := jwtToken.SignedString(secret)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		res, _ := json.Marshal(&Result{Error: err.Error()})
+		w.Write(res)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	res, _ := json.Marshal(&map[string]string{"token": signedToken})
+	w.Write(res)
+}
+
+func auth(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if len(cfg.Password) > 0 {
+			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+
+			var token string
+			cookie, err := r.Cookie("token")
+			if err == nil {
+				token = cookie.Value
+			}
+
+			jwtToken, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
+				return secret, nil
+			})
+
+			if err != nil {
+				w.WriteHeader(http.StatusUnauthorized)
+				res, _ := json.Marshal(&Result{Error: err.Error()})
+				w.Write(res)
+				return
+			}
+			if !jwtToken.Valid {
+				w.WriteHeader(http.StatusUnauthorized)
+				res, _ := json.Marshal(&Result{Error: "jwt token isn't valid"})
+				w.Write(res)
+				return
+			}
+
+			res, ok := jwtToken.Claims.(jwt.MapClaims)
+			if !ok {
+				w.WriteHeader(http.StatusUnauthorized)
+				res, _ := json.Marshal(&Result{Error: "failed to typecast to jwt.MapCalims"})
+				w.Write(res)
+				return
+			}
+
+			hashPassRaw := res["hashPass"]
+			hashPass, ok := hashPassRaw.(string)
+			if !ok {
+				w.WriteHeader(http.StatusUnauthorized)
+				res, _ := json.Marshal(&Result{Error: "failed to typecase password hash to string"})
+				w.Write(res)
+				return
+			}
+
+			result := sha256.Sum256([]byte(cfg.Password))
+			if hashPass != hex.EncodeToString(result[:]) {
+				w.WriteHeader(http.StatusUnauthorized)
+				res, _ := json.Marshal(&Result{Error: "token password hash doesn't match"})
+				w.Write(res)
+				return
+			}
+		}
+		next(w, r)
+	})
 }

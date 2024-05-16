@@ -5,4 +5,5 @@ type config struct {
 	WebFolder string `envDefault:"./web"`
 	DBPath    string `env:"TODO_DBFILE"`
 	Limit     int    `env:"LIMIT" envDefault:"50"`
+	Password  string `env:"TODO_PASSWORD"`
 }

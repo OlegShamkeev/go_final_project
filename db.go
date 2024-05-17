@@ -37,15 +37,20 @@ func initDB() (*sqlx.DB, error) {
 			log.Printf("Attempt to create new DB file by path: %s\n", dbFilePath)
 
 			install = true
+
+			err = os.MkdirAll(filepath.Dir(dbFilePath), 0766)
+			if err != nil {
+				return nil, err
+			}
 			f, err := os.Create(dbFilePath)
 			if err != nil {
 				return nil, err
 			}
 			defer f.Close()
-			err = f.Chmod(0666)
-			if err != nil {
-				return nil, err
-			}
+			// err = f.Chmod(0666)
+			// if err != nil {
+			// 	return nil, err
+			// }
 			log.Println("New DB file successfully created")
 		} else {
 			return nil, err

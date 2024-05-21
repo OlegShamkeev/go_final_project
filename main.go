@@ -46,7 +46,7 @@ func main() {
 	r.Post("/api/signin", authAndGenerateToken)
 
 	log.Printf("Starting web-server on port: %d\n", cfg.Port)
-	if err := http.ListenAndServe(fmt.Sprintf("localhost:%d", cfg.Port), r); err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", cfg.Port), r); err != nil {
 		log.Fatalf("Error starting web-server: %s", err.Error())
 	}
 }

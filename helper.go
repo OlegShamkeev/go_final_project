@@ -9,9 +9,10 @@ import (
 )
 
 const secretLength = 20
+const dateTimeFormat = "20060102"
 
 func NextDate(now time.Time, date string, repeat string, update bool) (string, error) {
-	d, err := time.Parse("20060102", date)
+	d, err := time.Parse(dateTimeFormat, date)
 	if err != nil {
 		return "", err
 	}
@@ -28,7 +29,7 @@ func NextDate(now time.Time, date string, repeat string, update bool) (string, e
 				break
 			}
 		}
-		return d.Format("20060102"), nil
+		return d.Format(dateTimeFormat), nil
 	case "d":
 		if len(arrayParams) <= 1 {
 			return "", fmt.Errorf("incorrect format of the repeat parameter")
@@ -41,7 +42,7 @@ func NextDate(now time.Time, date string, repeat string, update bool) (string, e
 			return "", fmt.Errorf("days to add more than 400")
 		}
 		//check if date has come is in today or in future
-		if (date == time.Now().Format("20060102") || d.After(time.Now())) && !update {
+		if (date == time.Now().Format(dateTimeFormat) || d.After(time.Now())) && !update {
 			return date, nil
 		}
 		for {
@@ -50,7 +51,7 @@ func NextDate(now time.Time, date string, repeat string, update bool) (string, e
 				break
 			}
 		}
-		return d.Format("20060102"), nil
+		return d.Format(dateTimeFormat), nil
 	case "w":
 		if len(arrayParams) <= 1 {
 			return "", fmt.Errorf("incorrect format of the repeat parameter")
@@ -70,7 +71,7 @@ func NextDate(now time.Time, date string, repeat string, update bool) (string, e
 
 		//check if date has come is in today or in future and suitable for repeat rules
 		_, ok := daysMap[int(d.Weekday())]
-		if (date == time.Now().Format("20060102") || d.After(time.Now())) && ok && !update {
+		if (date == time.Now().Format(dateTimeFormat) || d.After(time.Now())) && ok && !update {
 			return date, nil
 		}
 		for {
@@ -79,7 +80,7 @@ func NextDate(now time.Time, date string, repeat string, update bool) (string, e
 				break
 			}
 		}
-		return d.Format("20060102"), nil
+		return d.Format(dateTimeFormat), nil
 	case "m":
 		if len(arrayParams) <= 1 {
 			return "", fmt.Errorf("incorrect format of the repeat parameter")
@@ -126,22 +127,22 @@ func NextDate(now time.Time, date string, repeat string, update bool) (string, e
 				break
 			}
 		}
-		return d.Format("20060102"), nil
+		return d.Format(dateTimeFormat), nil
 	default:
 		return "", fmt.Errorf("incorrect format of the Repeat parameter")
 	}
 }
 
-func validateAndUpdateTask(task *Task, update bool) *Result {
+func (task *Task) validateAndUpdateTask(update bool) *Result {
 
 	if len(strings.TrimSpace(task.Title)) == 0 {
 		return &Result{Error: "field title couldn't be empty"}
 	}
 
 	if len(strings.TrimSpace(task.Date)) == 0 {
-		task.Date = time.Now().Format("20060102")
+		task.Date = time.Now().Format(dateTimeFormat)
 	} else {
-		dateParsed, err := time.Parse("20060102", task.Date)
+		dateParsed, err := time.Parse(dateTimeFormat, task.Date)
 		if err != nil {
 			return &Result{Error: err.Error()}
 		}
@@ -151,7 +152,7 @@ func validateAndUpdateTask(task *Task, update bool) *Result {
 				return &Result{Error: err.Error()}
 			}
 		} else if dateParsed.Before(time.Now()) {
-			task.Date = time.Now().Format("20060102")
+			task.Date = time.Now().Format(dateTimeFormat)
 		}
 	}
 	return nil

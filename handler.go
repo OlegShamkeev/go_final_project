@@ -36,6 +36,7 @@ func getNextDate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(b)
 	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -60,7 +61,7 @@ func postTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if resultValidate := validateAndUpdateTask(task, false); resultValidate != nil {
+	if resultValidate := task.validateAndUpdateTask(false); resultValidate != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		res, _ := json.Marshal(resultValidate)
 		w.Write(res)
@@ -162,7 +163,7 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if resultValidate := validateAndUpdateTask(task, false); resultValidate != nil {
+	if resultValidate := task.validateAndUpdateTask(false); resultValidate != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		res, _ := json.Marshal(resultValidate)
 		w.Write(res)
@@ -207,7 +208,7 @@ func checkDoneTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if resultValidate := validateAndUpdateTask(task, true); resultValidate != nil {
+	if resultValidate := task.validateAndUpdateTask(true); resultValidate != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		res, _ := json.Marshal(resultValidate)
 		w.Write(res)

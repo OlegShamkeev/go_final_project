@@ -47,10 +47,7 @@ func initDB() (*sqlx.DB, error) {
 				return nil, err
 			}
 			defer f.Close()
-			// err = f.Chmod(0666)
-			// if err != nil {
-			// 	return nil, err
-			// }
+
 			log.Println("New DB file successfully created")
 		} else {
 			return nil, err
@@ -89,7 +86,6 @@ func createTableAndIndex(db *sqlx.DB) error {
 }
 
 func (t storage) createTask(task *Task) (int, error) {
-	log.Printf("Insert new record in DB:\n date: %s, title: %s, comment: %s, repeat: %s\n", task.Date, task.Title, task.Comment, task.Repeat)
 	insertRow := `INSERT INTO scheduler (date, title, comment, repeat) 
 	VALUES (?, ?, ?, ?)`
 	res, err := t.db.Exec(insertRow, task.Date, task.Title, task.Comment, task.Repeat)
@@ -109,7 +105,8 @@ func (t storage) getTasks(search string) ([]Task, error) {
 	tasks := []Task{}
 	var errM error
 
-	if len(search) > 0 {
+	switch length := len(search); {
+	case length > 0:
 		date, err := time.Parse("02.01.2006", search)
 		if err != nil {
 			selectRows = `SELECT * FROM scheduler WHERE UPPER(title) LIKE ? OR UPPER(comment) LIKE ? ORDER BY date LIMIT ?`
@@ -117,14 +114,16 @@ func (t storage) getTasks(search string) ([]Task, error) {
 				"%"+strings.ToUpper(search)+"%",
 				"%"+strings.ToUpper(search)+"%",
 				cfg.Limit)
-		} else {
-			selectRows = `SELECT * FROM scheduler WHERE date = ? LIMIT ?`
-			errM = t.db.Select(&tasks, selectRows, date.Format("20060102"), cfg.Limit)
+			break
 		}
-	} else {
+		selectRows = `SELECT * FROM scheduler WHERE date = ? LIMIT ?`
+		errM = t.db.Select(&tasks, selectRows, date.Format("20060102"), cfg.Limit)
+
+	case length == 0:
 		selectRows = `SELECT * FROM scheduler ORDER BY date LIMIT ?`
 		errM = t.db.Select(&tasks, selectRows, cfg.Limit)
 	}
+
 	if errM != nil {
 		return nil, errM
 	}
@@ -133,7 +132,6 @@ func (t storage) getTasks(search string) ([]Task, error) {
 
 func (t storage) getTask(id int) (*Task, error) {
 	task := &Task{}
-
 	selectRow := `SELECT * FROM scheduler WHERE id = ?`
 	err := t.db.Get(task, selectRow, id)
 	if err != nil {
@@ -143,8 +141,6 @@ func (t storage) getTask(id int) (*Task, error) {
 }
 
 func (t storage) updateTask(task *Task) error {
-	log.Printf("Update task with id: %s", task.Id)
-
 	updateRow := `UPDATE scheduler SET date = ?, title = ?, comment = ?, repeat = ? WHERE id = ?`
 	_, err := t.db.Exec(updateRow, task.Date, task.Title, task.Comment, task.Repeat, task.Id)
 	if err != nil {
@@ -154,7 +150,6 @@ func (t storage) updateTask(task *Task) error {
 }
 
 func (t storage) deleteTask(id int) error {
-	log.Printf("Delete task with id: %d", id)
 	deleteRow := `DELETE FROM scheduler where id = ?`
 	_, err := t.db.Exec(deleteRow, id)
 	if err != nil {

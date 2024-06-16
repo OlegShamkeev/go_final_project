@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -36,6 +38,7 @@ func getNextDate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(b)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "error during writing data to response writer %s", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -78,7 +81,12 @@ func postTask(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusCreated)
 	res, _ := json.Marshal(&Result{Id: id})
-	w.Write(res)
+	_, err = w.Write(res)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error during writing data to response writer %s", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func getTasks(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +104,12 @@ func getTasks(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	res, _ := json.Marshal(&map[string][]Task{"tasks": tasks})
-	w.Write(res)
+	_, err = w.Write(res)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error during writing data to response writer %s", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func getTask(w http.ResponseWriter, r *http.Request) {
@@ -122,7 +135,12 @@ func getTask(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	res, _ := json.Marshal(task)
-	w.Write(res)
+	_, err = w.Write(res)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error during writing data to response writer %s", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func updateTask(w http.ResponseWriter, r *http.Request) {
@@ -179,7 +197,12 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	res, _ := json.Marshal(&map[string]any{})
-	w.Write(res)
+	_, err = w.Write(res)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error during writing data to response writer %s", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func checkDoneTask(w http.ResponseWriter, r *http.Request) {
@@ -226,7 +249,12 @@ func checkDoneTask(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	res, _ := json.Marshal(&map[string]any{})
-	w.Write(res)
+	_, err = w.Write(res)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error during writing data to response writer %s", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func deleteTask(w http.ResponseWriter, r *http.Request) {
@@ -252,7 +280,12 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	res, _ := json.Marshal(&map[string]any{})
-	w.Write(res)
+	_, err = w.Write(res)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error during writing data to response writer %s", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func authAndGenerateToken(w http.ResponseWriter, r *http.Request) {
@@ -297,7 +330,12 @@ func authAndGenerateToken(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	res, _ := json.Marshal(&map[string]string{"token": signedToken})
-	w.Write(res)
+	_, err = w.Write(res)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error during writing data to response writer %s", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func auth(next http.HandlerFunc) http.HandlerFunc {

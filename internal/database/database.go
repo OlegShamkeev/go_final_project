@@ -1,4 +1,4 @@
-package main
+package database
 
 import (
 	"log"
@@ -7,25 +7,30 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OlegShamkeev/go_final_project/internal/config"
+	"github.com/OlegShamkeev/go_final_project/internal/services"
+
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type storage struct {
-	db *sqlx.DB
+var Cfg *config.Config
+
+type Storage struct {
+	Db *sqlx.DB
 }
 
-func initDB() (*sqlx.DB, error) {
+func InitDB(dbPath string) (*sqlx.DB, error) {
 	var dbFilePath string
-	if len(cfg.DBPath) > 0 {
-		dbFilePath = cfg.DBPath
+	if len(dbPath) > 0 {
+		dbFilePath = dbPath
 	} else {
 		appPath, err := os.Getwd()
 		if err != nil {
 			return nil, err
 		}
-		dbFilePath = filepath.Join(appPath, "scheduler.db")
-		log.Printf("DB path that will be used is %s\n", dbFilePath)
+		dbFilePath = filepath.Join(appPath, "..", "..", "scheduler.Db")
+		log.Printf("Db path that will be used is %s\n", dbFilePath)
 	}
 
 	var install bool
@@ -34,7 +39,7 @@ func initDB() (*sqlx.DB, error) {
 
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Printf("Attempt to create new DB file by path: %s\n", dbFilePath)
+			log.Printf("Attempt to create new Db file by path: %s\n", dbFilePath)
 
 			install = true
 
@@ -48,47 +53,47 @@ func initDB() (*sqlx.DB, error) {
 			}
 			defer f.Close()
 
-			log.Println("New DB file successfully created")
+			log.Println("New Db file successfully created")
 		} else {
 			return nil, err
 		}
 	}
-	log.Printf("Connecting to DB by path: %s\n", dbFilePath)
-	db, err := sqlx.Connect("sqlite3", dbFilePath)
+	log.Printf("Connecting to Db by path: %s\n", dbFilePath)
+	Db, err := sqlx.Connect("sqlite3", dbFilePath)
 	if err != nil {
 		return nil, err
 	}
 
 	if install {
-		if err = createTableAndIndex(db); err != nil {
+		if err = createTableAndIndex(Db); err != nil {
 			return nil, err
 		}
 	}
 
-	return db, nil
+	return Db, nil
 }
 
-func createTableAndIndex(db *sqlx.DB) error {
+func createTableAndIndex(Db *sqlx.DB) error {
 	log.Println("Creating new table scheduler with index")
 	schema := `CREATE TABLE scheduler (id INTEGER PRIMARY KEY AUTOINCREMENT, date CHAR(8) NOT NULL DEFAULT "", 
 	title VARCHAR(256) NOT NULL DEFAULT "", comment TEXT NOT NULL DEFAULT "", repeat VARCHAR(128) NOT NULL DEFAULT "")`
 
-	_, err := db.Exec(schema)
+	_, err := Db.Exec(schema)
 	if err != nil {
 		return err
 	}
 	index := `CREATE INDEX scheduler_date ON scheduler (date)`
-	_, err = db.Exec(index)
+	_, err = Db.Exec(index)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t storage) createTask(task *Task) (int, error) {
+func (t Storage) CreateTask(task *services.Task) (int, error) {
 	insertRow := `INSERT INTO scheduler (date, title, comment, repeat) 
 	VALUES (?, ?, ?, ?)`
-	res, err := t.db.Exec(insertRow, task.Date, task.Title, task.Comment, task.Repeat)
+	res, err := t.Db.Exec(insertRow, task.Date, task.Title, task.Comment, task.Repeat)
 	if err != nil {
 		return 0, err
 	}
@@ -100,9 +105,9 @@ func (t storage) createTask(task *Task) (int, error) {
 	return int(id), nil
 }
 
-func (t storage) getTasks(search string) ([]Task, error) {
+func (t Storage) GetTasks(search string) ([]services.Task, error) {
 	var selectRows string
-	tasks := []Task{}
+	tasks := []services.Task{}
 	var errM error
 
 	switch length := len(search); {
@@ -110,18 +115,18 @@ func (t storage) getTasks(search string) ([]Task, error) {
 		date, err := time.Parse("02.01.2006", search)
 		if err != nil {
 			selectRows = `SELECT * FROM scheduler WHERE UPPER(title) LIKE ? OR UPPER(comment) LIKE ? ORDER BY date LIMIT ?`
-			errM = t.db.Select(&tasks, selectRows,
+			errM = t.Db.Select(&tasks, selectRows,
 				"%"+strings.ToUpper(search)+"%",
 				"%"+strings.ToUpper(search)+"%",
-				cfg.Limit)
+				Cfg.Limit)
 			break
 		}
 		selectRows = `SELECT * FROM scheduler WHERE date = ? LIMIT ?`
-		errM = t.db.Select(&tasks, selectRows, date.Format("20060102"), cfg.Limit)
+		errM = t.Db.Select(&tasks, selectRows, date.Format("20060102"), Cfg.Limit)
 
 	case length == 0:
 		selectRows = `SELECT * FROM scheduler ORDER BY date LIMIT ?`
-		errM = t.db.Select(&tasks, selectRows, cfg.Limit)
+		errM = t.Db.Select(&tasks, selectRows, Cfg.Limit)
 	}
 
 	if errM != nil {
@@ -130,28 +135,28 @@ func (t storage) getTasks(search string) ([]Task, error) {
 	return tasks, nil
 }
 
-func (t storage) getTask(id int) (*Task, error) {
-	task := &Task{}
+func (t Storage) GetTask(id int) (*services.Task, error) {
+	task := &services.Task{}
 	selectRow := `SELECT * FROM scheduler WHERE id = ?`
-	err := t.db.Get(task, selectRow, id)
+	err := t.Db.Get(task, selectRow, id)
 	if err != nil {
 		return nil, err
 	}
 	return task, nil
 }
 
-func (t storage) updateTask(task *Task) error {
+func (t Storage) UpdateTask(task *services.Task) error {
 	updateRow := `UPDATE scheduler SET date = ?, title = ?, comment = ?, repeat = ? WHERE id = ?`
-	_, err := t.db.Exec(updateRow, task.Date, task.Title, task.Comment, task.Repeat, task.Id)
+	_, err := t.Db.Exec(updateRow, task.Date, task.Title, task.Comment, task.Repeat, task.Id)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t storage) deleteTask(id int) error {
+func (t Storage) DeleteTask(id int) error {
 	deleteRow := `DELETE FROM scheduler where id = ?`
-	_, err := t.db.Exec(deleteRow, id)
+	_, err := t.Db.Exec(deleteRow, id)
 	if err != nil {
 		return err
 	}

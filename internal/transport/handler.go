@@ -1,4 +1,4 @@
-package main
+package transport
 
 import (
 	"bytes"
@@ -10,10 +10,20 @@ import (
 	"os"
 	"time"
 
+	"github.com/OlegShamkeev/go_final_project/internal/config"
+	"github.com/OlegShamkeev/go_final_project/internal/database"
+	"github.com/OlegShamkeev/go_final_project/internal/services"
+	"github.com/OlegShamkeev/go_final_project/internal/types"
+	"github.com/OlegShamkeev/go_final_project/internal/utils"
+
 	"github.com/golang-jwt/jwt"
 )
 
-func getNextDate(w http.ResponseWriter, r *http.Request) {
+var Cfg *config.Config
+var Store *database.Storage
+var Secret []byte
+
+func GetNextDate(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application-json")
 
@@ -26,7 +36,7 @@ func getNextDate(w http.ResponseWriter, r *http.Request) {
 	date := r.URL.Query().Get("date")
 	repeat := r.URL.Query().Get("repeat")
 
-	result, err := NextDate(dNow, date, repeat, false)
+	result, err := services.NextDate(dNow, date, repeat, false)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -44,43 +54,43 @@ func getNextDate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func postTask(w http.ResponseWriter, r *http.Request) {
+func PostTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
-	var task *Task
+	var task *services.Task
 	var buf bytes.Buffer
 
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
 	if err := json.Unmarshal(buf.Bytes(), &task); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
 
-	if resultValidate := task.validateAndUpdateTask(false); resultValidate != nil {
+	if resultValidate := task.ValidateAndUpdateTask(false); resultValidate != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		res, _ := json.Marshal(resultValidate)
 		w.Write(res)
 		return
 	}
 
-	id, err := store.createTask(task)
+	id, err := Store.CreateTask(task)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	res, _ := json.Marshal(&Result{Id: id})
+	res, _ := json.Marshal(&types.Result{Id: id})
 	_, err = w.Write(res)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error during writing data to response writer %s", err.Error())
@@ -89,21 +99,21 @@ func postTask(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getTasks(w http.ResponseWriter, r *http.Request) {
+func GetTasks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
 	search := r.URL.Query().Get("search")
 
-	tasks, err := store.getTasks(search)
+	tasks, err := Store.GetTasks(search)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	res, _ := json.Marshal(&map[string][]Task{"tasks": tasks})
+	res, _ := json.Marshal(&map[string][]services.Task{"tasks": tasks})
 	_, err = w.Write(res)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error during writing data to response writer %s", err.Error())
@@ -112,24 +122,24 @@ func getTasks(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getTask(w http.ResponseWriter, r *http.Request) {
+func GetTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
 	id := r.URL.Query().Get("id")
-	idInt, err := validateTaskID(id)
+	idInt, err := utils.ValidateTaskID(id)
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
 
-	task, err := store.getTask(idInt)
+	task, err := Store.GetTask(idInt)
 
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
@@ -143,54 +153,54 @@ func getTask(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func updateTask(w http.ResponseWriter, r *http.Request) {
+func UpdateTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
 	var buf bytes.Buffer
-	var task *Task
+	var task *services.Task
 
 	_, err := buf.ReadFrom(r.Body)
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
 	if err := json.Unmarshal(buf.Bytes(), &task); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
 
-	idInt, err := validateTaskID(task.Id)
+	idInt, err := utils.ValidateTaskID(task.Id)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
 
-	_, err = store.getTask(idInt)
+	_, err = Store.GetTask(idInt)
 
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
 
-	if resultValidate := task.validateAndUpdateTask(false); resultValidate != nil {
+	if resultValidate := task.ValidateAndUpdateTask(false); resultValidate != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		res, _ := json.Marshal(resultValidate)
 		w.Write(res)
 		return
 	}
-	err = store.updateTask(task)
+	err = Store.UpdateTask(task)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
@@ -205,44 +215,44 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func checkDoneTask(w http.ResponseWriter, r *http.Request) {
+func CheckDoneTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
 	id := r.URL.Query().Get("id")
-	idInt, err := validateTaskID(id)
+	idInt, err := utils.ValidateTaskID(id)
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
-	task, err := store.getTask(idInt)
+	task, err := Store.GetTask(idInt)
 
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
 
 	if len(task.Repeat) == 0 {
-		deleteTask(w, r)
+		DeleteTask(w, r)
 		return
 	}
 
-	if resultValidate := task.validateAndUpdateTask(true); resultValidate != nil {
+	if resultValidate := task.ValidateAndUpdateTask(true); resultValidate != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		res, _ := json.Marshal(resultValidate)
 		w.Write(res)
 		return
 	}
 
-	err = store.updateTask(task)
+	err = Store.UpdateTask(task)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
@@ -257,24 +267,24 @@ func checkDoneTask(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func deleteTask(w http.ResponseWriter, r *http.Request) {
+func DeleteTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
 	id := r.URL.Query().Get("id")
-	idInt, err := validateTaskID(id)
+	idInt, err := utils.ValidateTaskID(id)
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
 
-	err = store.deleteTask(idInt)
+	err = Store.DeleteTask(idInt)
 
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
@@ -288,7 +298,7 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func authAndGenerateToken(w http.ResponseWriter, r *http.Request) {
+func AuthAndGenerateToken(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
 	var buf bytes.Buffer
@@ -296,35 +306,35 @@ func authAndGenerateToken(w http.ResponseWriter, r *http.Request) {
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
 	p := map[string]string{}
 	if err := json.Unmarshal(buf.Bytes(), &p); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
 
-	if p["password"] != cfg.Password {
+	if p["password"] != Cfg.Password {
 		w.WriteHeader(http.StatusUnauthorized)
-		res, _ := json.Marshal(&Result{Error: "wrong password"})
+		res, _ := json.Marshal(&types.Result{Error: "wrong password"})
 		w.Write(res)
 		return
 	}
 
-	result := sha256.Sum256([]byte(cfg.Password))
+	result := sha256.Sum256([]byte(Cfg.Password))
 	claims := jwt.MapClaims{
 		"hashPass": hex.EncodeToString(result[:]),
 	}
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	signedToken, err := jwtToken.SignedString(secret)
+	signedToken, err := jwtToken.SignedString(Secret)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		res, _ := json.Marshal(&Result{Error: err.Error()})
+		res, _ := json.Marshal(&types.Result{Error: err.Error()})
 		w.Write(res)
 		return
 	}
@@ -338,9 +348,9 @@ func authAndGenerateToken(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func auth(next http.HandlerFunc) http.HandlerFunc {
+func Auth(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if len(cfg.Password) > 0 {
+		if len(Cfg.Password) > 0 {
 			w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 
 			var token string
@@ -350,18 +360,18 @@ func auth(next http.HandlerFunc) http.HandlerFunc {
 			}
 
 			jwtToken, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
-				return secret, nil
+				return Secret, nil
 			})
 
 			if err != nil {
 				w.WriteHeader(http.StatusUnauthorized)
-				res, _ := json.Marshal(&Result{Error: err.Error()})
+				res, _ := json.Marshal(&types.Result{Error: err.Error()})
 				w.Write(res)
 				return
 			}
 			if !jwtToken.Valid {
 				w.WriteHeader(http.StatusUnauthorized)
-				res, _ := json.Marshal(&Result{Error: "jwt token isn't valid"})
+				res, _ := json.Marshal(&types.Result{Error: "jwt token isn't valid"})
 				w.Write(res)
 				return
 			}
@@ -369,7 +379,7 @@ func auth(next http.HandlerFunc) http.HandlerFunc {
 			res, ok := jwtToken.Claims.(jwt.MapClaims)
 			if !ok {
 				w.WriteHeader(http.StatusUnauthorized)
-				res, _ := json.Marshal(&Result{Error: "failed to typecast to jwt.MapCalims"})
+				res, _ := json.Marshal(&types.Result{Error: "failed to typecast to jwt.MapCalims"})
 				w.Write(res)
 				return
 			}
@@ -378,15 +388,15 @@ func auth(next http.HandlerFunc) http.HandlerFunc {
 			hashPass, ok := hashPassRaw.(string)
 			if !ok {
 				w.WriteHeader(http.StatusUnauthorized)
-				res, _ := json.Marshal(&Result{Error: "failed to typecase password hash to string"})
+				res, _ := json.Marshal(&types.Result{Error: "failed to typecase password hash to string"})
 				w.Write(res)
 				return
 			}
 
-			result := sha256.Sum256([]byte(cfg.Password))
+			result := sha256.Sum256([]byte(Cfg.Password))
 			if hashPass != hex.EncodeToString(result[:]) {
 				w.WriteHeader(http.StatusUnauthorized)
-				res, _ := json.Marshal(&Result{Error: "token password hash doesn't match"})
+				res, _ := json.Marshal(&types.Result{Error: "token password hash doesn't match"})
 				w.Write(res)
 				return
 			}

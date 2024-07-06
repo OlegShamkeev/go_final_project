@@ -29,7 +29,7 @@ func InitDB(dbPath string) (*sqlx.DB, error) {
 		if err != nil {
 			return nil, err
 		}
-		dbFilePath = filepath.Join(appPath, "..", "..", "scheduler.Db")
+		dbFilePath = filepath.Join(appPath, "scheduler.Db")
 		log.Printf("Db path that will be used is %s\n", dbFilePath)
 	}
 

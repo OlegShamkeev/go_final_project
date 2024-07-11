@@ -1,11 +1,13 @@
-package services
+package task
 
 import (
 	"strings"
 	"time"
 
-	"github.com/OlegShamkeev/go_final_project/internal/types"
+	"github.com/OlegShamkeev/go_final_project/internal/nextdate"
 )
+
+const dateTimeFormat = "20060102"
 
 type Task struct {
 	Id      string `json:"id,omitempty" db:"id"`
@@ -15,10 +17,10 @@ type Task struct {
 	Repeat  string `json:"repeat,omitempty" db:"repeat"`
 }
 
-func (task *Task) ValidateAndUpdateTask(update bool) *types.Result {
+func (task *Task) ValidateAndUpdateTask(update bool) string {
 
 	if len(strings.TrimSpace(task.Title)) == 0 {
-		return &types.Result{Error: "field title couldn't be empty"}
+		return "field title couldn't be empty"
 	}
 
 	if len(strings.TrimSpace(task.Date)) == 0 {
@@ -26,16 +28,16 @@ func (task *Task) ValidateAndUpdateTask(update bool) *types.Result {
 	} else {
 		dateParsed, err := time.Parse(dateTimeFormat, task.Date)
 		if err != nil {
-			return &types.Result{Error: err.Error()}
+			return err.Error()
 		}
 		if len(strings.TrimSpace(task.Repeat)) > 0 {
-			task.Date, err = NextDate(time.Now(), task.Date, task.Repeat, update)
+			task.Date, err = nextdate.NextDate(time.Now(), task.Date, task.Repeat, update)
 			if err != nil {
-				return &types.Result{Error: err.Error()}
+				return err.Error()
 			}
 		} else if dateParsed.Before(time.Now()) {
 			task.Date = time.Now().Format(dateTimeFormat)
 		}
 	}
-	return nil
+	return ""
 }

@@ -1,4 +1,4 @@
-package database
+package storage
 
 import (
 	"log"
@@ -8,16 +8,20 @@ import (
 	"time"
 
 	"github.com/OlegShamkeev/go_final_project/internal/config"
-	"github.com/OlegShamkeev/go_final_project/internal/services"
+	"github.com/OlegShamkeev/go_final_project/internal/task"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var Cfg *config.Config
+var cfg *config.Config
 
 type Storage struct {
 	Db *sqlx.DB
+}
+
+func NewStorage(config *config.Config) {
+	cfg = config
 }
 
 func InitDB(dbPath string) (*sqlx.DB, error) {
@@ -90,7 +94,7 @@ func createTableAndIndex(Db *sqlx.DB) error {
 	return nil
 }
 
-func (t Storage) CreateTask(task *services.Task) (int, error) {
+func (t Storage) CreateTask(task *task.Task) (int, error) {
 	insertRow := `INSERT INTO scheduler (date, title, comment, repeat) 
 	VALUES (?, ?, ?, ?)`
 	res, err := t.Db.Exec(insertRow, task.Date, task.Title, task.Comment, task.Repeat)
@@ -105,9 +109,9 @@ func (t Storage) CreateTask(task *services.Task) (int, error) {
 	return int(id), nil
 }
 
-func (t Storage) GetTasks(search string) ([]services.Task, error) {
+func (t Storage) GetTasks(search string) ([]task.Task, error) {
 	var selectRows string
-	tasks := []services.Task{}
+	tasks := []task.Task{}
 	var errM error
 
 	switch length := len(search); {
@@ -118,15 +122,15 @@ func (t Storage) GetTasks(search string) ([]services.Task, error) {
 			errM = t.Db.Select(&tasks, selectRows,
 				"%"+strings.ToUpper(search)+"%",
 				"%"+strings.ToUpper(search)+"%",
-				Cfg.Limit)
+				cfg.Limit)
 			break
 		}
 		selectRows = `SELECT * FROM scheduler WHERE date = ? LIMIT ?`
-		errM = t.Db.Select(&tasks, selectRows, date.Format("20060102"), Cfg.Limit)
+		errM = t.Db.Select(&tasks, selectRows, date.Format("20060102"), cfg.Limit)
 
 	case length == 0:
 		selectRows = `SELECT * FROM scheduler ORDER BY date LIMIT ?`
-		errM = t.Db.Select(&tasks, selectRows, Cfg.Limit)
+		errM = t.Db.Select(&tasks, selectRows, cfg.Limit)
 	}
 
 	if errM != nil {
@@ -135,8 +139,8 @@ func (t Storage) GetTasks(search string) ([]services.Task, error) {
 	return tasks, nil
 }
 
-func (t Storage) GetTask(id int) (*services.Task, error) {
-	task := &services.Task{}
+func (t Storage) GetTask(id int) (*task.Task, error) {
+	task := &task.Task{}
 	selectRow := `SELECT * FROM scheduler WHERE id = ?`
 	err := t.Db.Get(task, selectRow, id)
 	if err != nil {
@@ -145,7 +149,7 @@ func (t Storage) GetTask(id int) (*services.Task, error) {
 	return task, nil
 }
 
-func (t Storage) UpdateTask(task *services.Task) error {
+func (t Storage) UpdateTask(task *task.Task) error {
 	updateRow := `UPDATE scheduler SET date = ?, title = ?, comment = ?, repeat = ? WHERE id = ?`
 	_, err := t.Db.Exec(updateRow, task.Date, task.Title, task.Comment, task.Repeat, task.Id)
 	if err != nil {

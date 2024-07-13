@@ -1,14 +1,12 @@
-package main
+package nextdate
 
 import (
 	"fmt"
-	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 )
 
-const secretLength = 20
 const dateTimeFormat = "20060102"
 
 func NextDate(now time.Time, date string, repeat string, update bool) (string, error) {
@@ -131,50 +129,4 @@ func NextDate(now time.Time, date string, repeat string, update bool) (string, e
 	default:
 		return "", fmt.Errorf("incorrect format of the Repeat parameter")
 	}
-}
-
-func (task *Task) validateAndUpdateTask(update bool) *Result {
-
-	if len(strings.TrimSpace(task.Title)) == 0 {
-		return &Result{Error: "field title couldn't be empty"}
-	}
-
-	if len(strings.TrimSpace(task.Date)) == 0 {
-		task.Date = time.Now().Format(dateTimeFormat)
-	} else {
-		dateParsed, err := time.Parse(dateTimeFormat, task.Date)
-		if err != nil {
-			return &Result{Error: err.Error()}
-		}
-		if len(strings.TrimSpace(task.Repeat)) > 0 {
-			task.Date, err = NextDate(time.Now(), task.Date, task.Repeat, update)
-			if err != nil {
-				return &Result{Error: err.Error()}
-			}
-		} else if dateParsed.Before(time.Now()) {
-			task.Date = time.Now().Format(dateTimeFormat)
-		}
-	}
-	return nil
-}
-
-func validateTaskID(id string) (int, error) {
-	if len(id) == 0 {
-		return 0, fmt.Errorf("no id parameter")
-	}
-	idInt, err := strconv.Atoi(id)
-	if err != nil {
-		return 0, err
-	}
-	return idInt, nil
-}
-
-func generateSecret() []byte {
-	rnd := rand.NewSource(time.Now().Unix())
-	result := make([]byte, 0, secretLength)
-	for i := 0; i < secretLength; i++ {
-		randomNumber := rnd.Int63()
-		result = append(result, byte(randomNumber%26+97))
-	}
-	return result
 }
